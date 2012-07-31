@@ -9,7 +9,7 @@ require 'optparse'
 # OUTPUT: text file with BAM file stats
 # one line for each BAM file analyzed
 #
-
+VERSION = '1.1.0'
 help = <<HELP
 bam_stats provides a number of stats on the reads contained in a bam file. 
 
@@ -104,6 +104,10 @@ OptionParser.new do |opts|
     options[:unique_sequences] = true
     ind = datums.index("unique_positions")
     datums.insert(ind + 1, "unique_sequences")
+  end
+  opts.on("--version", "Show Version") do |h|
+    puts "bam_stats: #{VERSION}"
+    exit
   end
   opts.on("-h", "--help", "Show Help") do |h|
     puts opts
