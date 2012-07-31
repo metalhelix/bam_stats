@@ -28,7 +28,7 @@ Options:
 HELP
 
 datums = ["name", "single_mapped_reads", "single_mapped_reads_percent", "multi_mapped_reads","multi_mapped_reads_percent", "total_alignable_reads",
-          "primary_alignments", "secondary_alignments", "total_alignments", "total_reads_in_bam", "unique_positions"]
+          "primary_alignments", "primary_alignments_percent", "secondary_alignments", "secondary_alignments_percent", "total_alignments", "total_reads_in_bam", "unique_positions"]
 
 datum_descriptions = <<DD
 Stats File Fields:
@@ -70,6 +70,7 @@ Stats File Fields:
                       Assumes bam file is position sorted.
 
 DD
+
 options = {}
 options[:samtools] = `which samtools`.chomp
 options[:output] = "bam_stats.txt"
@@ -97,6 +98,12 @@ OptionParser.new do |opts|
     ind = datums.index("total_alignable_reads")
     datums.insert(ind + 1, "total_reads")
     datums.insert(ind + 1, "not_mapped_reads")
+  end
+  opts.on("--unique_sequences", "enable counting unique sequences") do |o|
+    require 'set'
+    options[:unique_sequences] = true
+    ind = datums.index("unique_positions")
+    datums.insert(ind + 1, "unique_sequences")
   end
   opts.on("-h", "--help", "Show Help") do |h|
     puts opts
@@ -151,9 +158,11 @@ count = 1
 FLAG_INDEX = 1
 REF_NAME_INDEX = 2
 POS_INDEX = 3
+SEQ_INDEX = 9
 
 
 bam_files.each do |bam_file|
+  beginning_time = Time.now
   if !File.exists?(bam_file)
     puts "ERROR: cannot find bam file #{bam_file}"
     next
@@ -173,9 +182,7 @@ bam_files.each do |bam_file|
 
   puts "Analyzing: #{name}"
   bam_data[name] = {}
-  datums.each do |datum|
-    bam_data[name][datum] = 0
-  end
+  datums.each {|datum| bam_data[name][datum] = 0 }
   bam_data[name]["name"] = name
 
   command = "#{SAMTOOLS} view #{bam_file}"
@@ -183,6 +190,11 @@ bam_files.each do |bam_file|
 
   total = 0
   last_position = ""
+  unique_sequences = nil
+  if options[:unique_sequences]
+    unique_sequences = Set.new
+  end
+
   Open3.popen3(command) do |i,o,e,t|
     while line = o.gets
       total += 1
@@ -226,8 +238,14 @@ bam_files.each do |bam_file|
         bam_data[name]["unique_positions"] += 1
       end
       last_position = cur_position
-      if options[:verbose] and (total % 1000000 == 0)
+
+      if options[:verbose] and (total % 10000000 == 0)
         puts "\t#{total} Reads Analyzed"
+      end
+
+      if options[:unique_sequences]
+        sequence = data[SEQ_INDEX]
+        unique_sequences.add?(sequence)
       end
     end
   end
@@ -237,6 +255,9 @@ bam_files.each do |bam_file|
   bam_data[name]["single_mapped_reads_percent"] = (bam_data[name]["single_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(3)
   bam_data[name]["multi_mapped_reads_percent"] = (bam_data[name]["multi_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(3)
 
+  bam_data[name]["primary_alignments_percent"] = (bam_data[name]["primary_alignments"].to_f / bam_data[name]["total_alignments"]).round(3)
+  bam_data[name]["secondary_alignments_percent"] = (bam_data[name]["secondary_alignments"].to_f / bam_data[name]["total_alignments"]).round(3)
+
   if options[:fastq]
     command = "cat #{options[:fastq]} | wc -l"
     result = `#{command}`
@@ -245,8 +266,16 @@ bam_files.each do |bam_file|
     bam_data[name]["not_mapped_reads"] = fastq_total - (bam_data[name]["single_mapped_reads"] + bam_data[name]["multi_mapped_reads"])
   end
 
+  if options[:unique_sequences]
+    bam_data[name]["unique_sequences"] = unique_sequences.length
+  end
+
+  end_time = Time.now
+  puts "#{name}: #{(end_time - beginning_time).round(2)} seconds" if options[:verbose]
+
 end
 
+# output to file
 File.open(output_filename, 'w') do |file|
   file.puts datums.join("\t")
   bam_data.each do |name, values|
@@ -255,6 +284,7 @@ File.open(output_filename, 'w') do |file|
   end
 end
 
+# output to command line
 bam_data.each do |name, values|
   format_string = datums.reduce("") {|t,v| t += "%-#{v.length + 2}s "; t}
   format_string += "\n"
