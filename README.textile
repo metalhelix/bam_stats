@@ -28,6 +28,7 @@ to multiple locations in the reference genome
 h3. multi_mapped_reads_percent
 
 multi_mapped_reads / total_alignable_reads
+
 h3. total_alignable_reads
 
 single_mapped_reads + multi_mapped_reads
@@ -67,8 +68,8 @@ Currently bam_stats can analyze 80,000 reads per second. Compare this to a stand
 
 
 |reads|bam_stats|wc|bam_stats/sec|wc/sec|
-41786101|516.94|147|80,834|284,259|
-108153984|1279.62|402|84,520|269,040|
-31279258|371.85|115|84,118|271,994|
-235991688|2785|842|84,737|280,275|
+|41786101|516.94|147|80,834|284,259|
+|108153984|1279.62|402|84,520|269,040|
+|31279258|371.85|115|84,118|271,994|
+|235991688|2785|842|84,737|280,275|
 
