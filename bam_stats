@@ -9,7 +9,7 @@ require 'optparse'
 # OUTPUT: text file with BAM file stats
 # one line for each BAM file analyzed
 #
-VERSION = '1.1.1'
+VERSION = '1.1.2'
 help = <<HELP
 bam_stats provides a number of stats on the reads contained in a bam file. 
 
@@ -186,14 +186,25 @@ bam_files.each do |bam_file|
   end
 
   puts "Analyzing: #{name}"
-  bam_data[name] = {}
-  datums.each {|datum| bam_data[name][datum] = 0 }
-  bam_data[name]["name"] = name
+
+  bam_instance_data = {}
+  datums.each {|datum| bam_instance_data[datum] = 0 }
+  bam_instance_data["name"] = name
 
   command = "#{SAMTOOLS} view #{bam_file}"
   puts command if options[:verbose]
 
+  # keep these out of hash until very end
+  # speed up is significant for not having to
+  # index into hash each iteration
   total = 0
+  total_aligns = 0
+  primary_alignments = 0
+  secondary_alignments = 0
+  single_mapped_reads = 0
+  multi_mapped_reads = 0
+  unique_positions = 0
+
   last_position = ""
   unique_sequences = nil
   if options[:unique_sequences]
@@ -205,21 +216,23 @@ bam_files.each do |bam_file|
       total += 1
       data = line.split("\t")
 
+      flags = data[FLAG_INDEX].to_i
+
       # get is aligned flag
-      mapped = data[FLAG_INDEX].to_i & 0x4
+      mapped = flags & 0x4
       mapped = (mapped == 0)
       if mapped
-        bam_data[name]["total_alignments"] += 1
+        total_aligns += 1
       end
 
       # determine primary or secondary alignment
-      secondary = data[FLAG_INDEX].to_i & 0x100
+      secondary = flags & 0x100
       secondary = (secondary != 0)
       if mapped
         if secondary
-          bam_data[name]["secondary_alignments"] += 1
+          secondary_alignments += 1
         else
-          bam_data[name]["primary_alignments"] += 1
+          primary_alignments += 1
         end
       end
 
@@ -228,9 +241,9 @@ bam_files.each do |bam_file|
       if(line =~ /NH:i:(\d+)/)
         number_reported_alignments = $1.to_i
         if number_reported_alignments == 1
-          bam_data[name]["single_mapped_reads"] += 1
+          single_mapped_reads += 1
         elsif number_reported_alignments > 1 and !secondary
-          bam_data[name]["multi_mapped_reads"] += 1
+          multi_mapped_reads += 1
         end
       elsif !warning
         puts "WARNING: \"NH:i\" tag not found"
@@ -240,7 +253,7 @@ bam_files.each do |bam_file|
 
       cur_position = "#{data[REF_NAME_INDEX]}_#{data[POS_INDEX]}"
       if mapped and cur_position != last_position
-        bam_data[name]["unique_positions"] += 1
+        unique_positions += 1
       end
       last_position = cur_position
 
@@ -255,29 +268,39 @@ bam_files.each do |bam_file|
     end
   end
 
-  bam_data[name]["total_reads_in_bam"] = total
-  bam_data[name]["total_alignable_reads"] = bam_data[name]["single_mapped_reads"] + bam_data[name]["multi_mapped_reads"]
-  bam_data[name]["single_mapped_reads_percent"] = (bam_data[name]["single_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(NUM_SIG_DIGITS)
-  bam_data[name]["multi_mapped_reads_percent"] = (bam_data[name]["multi_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(NUM_SIG_DIGITS)
+  bam_instance_data["total_reads_in_bam"] = total
+  bam_instance_data["total_alignments"] += total_aligns
+  bam_instance_data["primary_alignments"] = primary_alignments
+  bam_instance_data["secondary_alignments"] = secondary_alignments
+  bam_instance_data["single_mapped_reads"] = single_mapped_reads
+  bam_instance_data["multi_mapped_reads"] = multi_mapped_reads
+  bam_instance_data["unique_positions"] = unique_positions
 
-  bam_data[name]["primary_alignments_percent"] = (bam_data[name]["primary_alignments"].to_f / bam_data[name]["total_alignments"]).round(NUM_SIG_DIGITS)
-  bam_data[name]["secondary_alignments_percent"] = (bam_data[name]["secondary_alignments"].to_f / bam_data[name]["total_alignments"]).round(NUM_SIG_DIGITS)
+  bam_instance_data["total_alignable_reads"] = bam_instance_data["single_mapped_reads"] + bam_instance_data["multi_mapped_reads"]
+  bam_instance_data["single_mapped_reads_percent"] = (bam_instance_data["single_mapped_reads"].to_f / bam_instance_data["total_alignable_reads"]).round(NUM_SIG_DIGITS)
+  bam_instance_data["multi_mapped_reads_percent"] = (bam_instance_data["multi_mapped_reads"].to_f / bam_instance_data["total_alignable_reads"]).round(NUM_SIG_DIGITS)
+
+  bam_instance_data["primary_alignments_percent"] = (bam_instance_data["primary_alignments"].to_f / bam_instance_data["total_alignments"]).round(NUM_SIG_DIGITS)
+  bam_instance_data["secondary_alignments_percent"] = (bam_instance_data["secondary_alignments"].to_f / bam_instance_data["total_alignments"]).round(NUM_SIG_DIGITS)
 
   if options[:fastq]
     command = "cat #{options[:fastq]} | wc -l"
     result = `#{command}`
     fastq_total = result.to_i / 4
-    bam_data[name]["total_reads"] = fastq_total
-    bam_data[name]["not_mapped_reads"] = fastq_total - (bam_data[name]["single_mapped_reads"] + bam_data[name]["multi_mapped_reads"])
+    bam_instance_data["total_reads"] = fastq_total
+    bam_instance_data["not_mapped_reads"] = fastq_total - (bam_instance_data["single_mapped_reads"] + bam_instance_data["multi_mapped_reads"])
   end
 
   if options[:unique_sequences]
-    bam_data[name]["unique_sequences"] = unique_sequences.length
+    bam_instance_data["unique_sequences"] = unique_sequences.length
   end
 
-  end_time = Time.now
-  puts "#{name}: #{(end_time - beginning_time).round(2)} seconds" if options[:verbose]
+  bam_data[name] = bam_instance_data
 
+  if options[:verbose]
+    end_time = Time.now
+    puts "#{name}: #{(end_time - beginning_time).round(2)} seconds"
+  end
 end
 
 # output to file
@@ -297,3 +320,4 @@ bam_data.each do |name, values|
   printf format_string, *datums
   printf format_string, *out
 end
+
