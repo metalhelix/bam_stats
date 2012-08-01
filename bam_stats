@@ -9,7 +9,7 @@ require 'optparse'
 # OUTPUT: text file with BAM file stats
 # one line for each BAM file analyzed
 #
-VERSION = '1.1.0'
+VERSION = '1.1.1'
 help = <<HELP
 bam_stats provides a number of stats on the reads contained in a bam file. 
 
@@ -164,6 +164,7 @@ REF_NAME_INDEX = 2
 POS_INDEX = 3
 SEQ_INDEX = 9
 
+NUM_SIG_DIGITS = 4
 
 bam_files.each do |bam_file|
   beginning_time = Time.now
@@ -256,11 +257,11 @@ bam_files.each do |bam_file|
 
   bam_data[name]["total_reads_in_bam"] = total
   bam_data[name]["total_alignable_reads"] = bam_data[name]["single_mapped_reads"] + bam_data[name]["multi_mapped_reads"]
-  bam_data[name]["single_mapped_reads_percent"] = (bam_data[name]["single_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(3)
-  bam_data[name]["multi_mapped_reads_percent"] = (bam_data[name]["multi_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(3)
+  bam_data[name]["single_mapped_reads_percent"] = (bam_data[name]["single_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(NUM_SIG_DIGITS)
+  bam_data[name]["multi_mapped_reads_percent"] = (bam_data[name]["multi_mapped_reads"].to_f / bam_data[name]["total_alignable_reads"]).round(NUM_SIG_DIGITS)
 
-  bam_data[name]["primary_alignments_percent"] = (bam_data[name]["primary_alignments"].to_f / bam_data[name]["total_alignments"]).round(3)
-  bam_data[name]["secondary_alignments_percent"] = (bam_data[name]["secondary_alignments"].to_f / bam_data[name]["total_alignments"]).round(3)
+  bam_data[name]["primary_alignments_percent"] = (bam_data[name]["primary_alignments"].to_f / bam_data[name]["total_alignments"]).round(NUM_SIG_DIGITS)
+  bam_data[name]["secondary_alignments_percent"] = (bam_data[name]["secondary_alignments"].to_f / bam_data[name]["total_alignments"]).round(NUM_SIG_DIGITS)
 
   if options[:fastq]
     command = "cat #{options[:fastq]} | wc -l"
