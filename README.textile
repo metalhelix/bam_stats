@@ -5,49 +5,68 @@ Calculated for one or more bam file.
 
 h2. Current Stats:
 
-    name              
-                      Sample name. If two bam files have the same name,
-                      name will be appended by incrementing integer
-    single_mapped_reads
-                      Number of reads from the fastq file that align 
-                      to only one location in the reference genome.
-                      Found by counting number of reads with NH:i:1
-    single_mapped_reads_percent
-                      single_mapped_reads / total_alignable_reads
-    multi_mapped_reads
-                      Number of reads from the fastq file that align 
-                      to multiple locations in the reference genome
-    multi_mapped_reads_percent
-                      multi_mapped_reads / total_alignable_reads
-    total_alignable_reads
-                      single_mapped_reads + multi_mapped_reads
+h3. name              
 
-    primary_alignments
-                      Count of total uniquely named alignments in bam file. 
-                      Each alignable read is counted once for this measure. 
-                      This is really just Total alignable reads, but 
-                      described in the context of the alignment.
-    secondary_alignments
-                      Count of Additional alignments in bam file from 
-                      multi-mapped reads.
-                      Found by looking for 0x100 flag in alignments
-    total_alignments
-                      primary_alignments + secondary_alignments.
-    total_reads_in_bam
-                      Total number of lines in bam file. For a bam
-                      file that does not include unaligned data, 
-                      this should be the same as total_alignments
-    unique_positions
-                      Total number of unique alignment positions found
-                      for alignments in bam file. 
-                      Assumes bam file is position sorted.
+Sample name. If two bam files have the same name,
+name will be appended by incrementing integer
+
+h3. single_mapped_reads
+
+Number of reads from the fastq file that align 
+to only one location in the reference genome.
+Found by counting number of reads with NH:i:1
+
+h3. single_mapped_reads_percent
+
+single_mapped_reads / total_alignable_reads
+
+h3. multi_mapped_reads
+
+Number of reads from the fastq file that align 
+to multiple locations in the reference genome
+
+h3. multi_mapped_reads_percent
+
+multi_mapped_reads / total_alignable_reads
+h3. total_alignable_reads
+
+single_mapped_reads + multi_mapped_reads
+
+h3. primary_alignments
+
+Count of total uniquely named alignments in bam file. 
+Each alignable read is counted once for this measure. 
+This is really just Total alignable reads, but 
+described in the context of the alignment.
+
+h3. secondary_alignments
+
+Count of Additional alignments in bam file from 
+multi-mapped reads.
+Found by looking for 0x100 flag in alignments
+
+h3. total_alignments
+
+primary_alignments + secondary_alignments.
+
+h3. total_reads_in_bam
+
+Total number of lines in bam file. For a bam
+file that does not include unaligned data, 
+this should be the same as total_alignments
+
+h3. unique_positions
+
+Total number of unique alignment positions found
+for alignments in bam file. 
+Assumes bam file is position sorted.
 
 h2. Timing
 
 Currently bam_stats can analyze 80,000 reads per second. Compare this to a standard @samtools view@ of all reads, which can be done at around 280,000 reads per second. 
 
 
-|reads|bam_stats|wc|
+|reads|bam_stats|wc|bam_stats/sec|wc/sec|
 41786101|516.94|147|80,834|284,259|
 108153984|1279.62|402|84,520|269,040|
 31279258|371.85|115|84,118|271,994|
