@@ -9,7 +9,7 @@ require 'optparse'
 # OUTPUT: text file with BAM file stats
 # one line for each BAM file analyzed
 #
-VERSION = '1.1.2'
+VERSION = '1.2.0'
 help = <<HELP
 bam_stats provides a number of stats on the reads contained in a bam file. 
 
@@ -85,7 +85,7 @@ OptionParser.new do |opts|
   opts.on("-s", "--samtools SAMTOOLS_PATH", "Specify samtools path") do |o|
     options[:samtools] = o
   end
-  opts.on("-o", "--output OUTPUT_PATH", "Output filename") do |o|
+  opts.on("-o", "--output OUTPUT_FILENAME", "Output filename") do |o|
     options[:output] = o
     options[:custom_output] = true
   end
@@ -109,7 +109,7 @@ OptionParser.new do |opts|
     options[:unique_sequences] = true
     ind = datums.index("unique_positions")
     datums.insert(ind + 1, "unique_sequences")
-  end
+ end
   opts.on("--version", "Show Version") do |h|
     puts "bam_stats: #{VERSION}"
     exit
