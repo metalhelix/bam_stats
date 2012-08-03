@@ -9,7 +9,8 @@ require 'optparse'
 # OUTPUT: text file with BAM file stats
 # one line for each BAM file analyzed
 #
-VERSION = '1.2.1'
+VERSION = '1.2.2'
+
 help = <<HELP
 bam_stats provides a number of stats on the reads contained in a bam file. 
 
@@ -109,7 +110,10 @@ OptionParser.new do |opts|
     options[:unique_sequences] = true
     ind = datums.index("unique_positions")
     datums.insert(ind + 1, "unique_sequences")
- end
+  end
+  opts.on("--table_out", "Output table to command line") do |v|
+    options[:table_out] = v
+  end
   opts.on("--version", "Show Version") do |h|
     puts "bam_stats: #{VERSION}"
     exit
@@ -169,6 +173,16 @@ else
   else
     output_filename = options[:output]
   end
+end
+
+def format_number number
+  formatted_number = number
+  if number.to_f < 1 and number.to_f >= 0
+    formatted_number = number
+  else
+    formatted_number = number.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+  end
+  formatted_number
 end
 
 bam_data = {}
@@ -335,11 +349,22 @@ File.open(output_filename, 'w') do |file|
 end
 
 # output to command line
-bam_data.each do |name, values|
-  format_string = datums.reduce("") {|t,v| t += "%-#{v.length + 2}s "; t}
-  format_string += "\n"
-  out = datums.map {|d| values[d]}
-  printf format_string, *datums
-  printf format_string, *out
+if options[:table_out]
+  bam_data.each do |name, values|
+    format_string = datums.reduce("") {|t,v| t += "%-#{v.length + 2}s "; t}
+    format_string += "\n"
+    out = datums.map {|d| values[d]}
+    printf format_string, *datums
+    printf format_string, *out
+  end
+else
+  bam_data.each do |name, values|
+    puts "#{name}: "
+    printed_datums = datums[1..-1]
+    max_length = printed_datums.reduce(0) {|t,v| t = (v.length > t) ? v.length : t; t}
+    printed_datums.each do |d|
+      printf "    %-#{max_length + 1}s: %s\n", d, format_number(values[d])
+    end
+  end
 end
 
