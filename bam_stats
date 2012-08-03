@@ -89,11 +89,16 @@ OptionParser.new do |opts|
     options[:output] = o
     options[:custom_output] = true
   end
-  opts.on("-f", "--fastq FASTQ_FILE", "Use additional fastq file") do |o|
-    options[:fastq] = o
-    if !File.exists? o
-      puts "ERROR: -f used but no valid fastq file provided"
-      exit(1)
+  opts.on("-n", "--names LIST,OF,NAMES", Array, "Sample Names to Use") do |o|
+    options[:names] = o
+  end
+  opts.on("-f", "--fastqs FASTQ,FILES", Array, "Use additional fastq file") do |o|
+    options[:fastqs] = o
+    options[:fastqs].each do |fastq|
+      if !File.exists? o
+        puts "ERROR: -f used but no valid fastq file provided"
+        exit(1)
+      end
     end
     ind = datums.index("total_alignable_reads")
     datums.insert(ind + 1, "total_reads")
@@ -142,10 +147,16 @@ else
   bam_files = Dir.glob(File.join(inputs[0], "*.bam"))
 end
 
-if bam_files.size > 1 and options[:fastq]
-  puts "WARNING: fastq file provided, but more than 1 .bam file"
-  puts "  ignoring fastq file"
-  options[:fastq] = nil
+if options[:fastqs] and (bam_files.size != options[:fastqs].size)
+  puts "WARNING: fastq files provided, but number do not match bam files number"
+  puts "  ignoring fastq files"
+  options[:fastqs] = nil
+end
+
+if options[:names] and (bam_files.size != options[:names].size)
+  puts "WARNING: names provided, but number do not match bam files number"
+  puts "  ignoring names"
+  options[:names] = nil
 end
 
 puts "Analyzing #{bam_files.size} BAM files"
@@ -166,23 +177,29 @@ SEQ_INDEX = 9
 
 NUM_SIG_DIGITS = 4
 
-bam_files.each do |bam_file|
+bam_files.each_with_index do |bam_file, bam_file_index|
   beginning_time = Time.now
   if !File.exists?(bam_file)
     puts "ERROR: cannot find bam file #{bam_file}"
     next
   end
-  name = File.basename(bam_file, File.extname(bam_file))
 
-  # just in case multiple bam files with the same name are provided
-  if bam_data[name]
-    new_name = "#{name}_#{count}"
-    while bam_data[new_name]
-      count += 1
+  name = ""
+  if options[:names]
+    name = options[:names][bam_file_index]
+  else
+    name = File.basename(bam_file, File.extname(bam_file))
+
+    # just in case multiple bam files with the same name are provided
+    if bam_data[name]
       new_name = "#{name}_#{count}"
+      while bam_data[new_name]
+        count += 1
+        new_name = "#{name}_#{count}"
+      end
+      name = new_name
+      count = 1
     end
-    name = new_name
-    count = 1
   end
 
   puts "Analyzing: #{name}"
@@ -283,8 +300,9 @@ bam_files.each do |bam_file|
   bam_instance_data["primary_alignments_percent"] = (bam_instance_data["primary_alignments"].to_f / bam_instance_data["total_alignments"]).round(NUM_SIG_DIGITS)
   bam_instance_data["secondary_alignments_percent"] = (bam_instance_data["secondary_alignments"].to_f / bam_instance_data["total_alignments"]).round(NUM_SIG_DIGITS)
 
-  if options[:fastq]
-    command = "cat #{options[:fastq]} | wc -l"
+  if options[:fastqs]
+    fastq_file = options[:fastqs][bam_file_index]
+    command = "cat #{fastq_file} | wc -l"
     result = `#{command}`
     fastq_total = result.to_i / 4
     bam_instance_data["total_reads"] = fastq_total
