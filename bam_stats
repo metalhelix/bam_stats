@@ -9,7 +9,7 @@ require 'optparse'
 # OUTPUT: text file with BAM file stats
 # one line for each BAM file analyzed
 #
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 help = <<HELP
 bam_stats provides a number of stats on the reads contained in a bam file. 
 
@@ -162,9 +162,13 @@ end
 puts "Analyzing #{bam_files.size} BAM files"
 
 if !options[:custom_output]
-  output_filename = File.join(File.dirname(bam_files[0]), options[:output])
+  output_filename = File.join(Dir.pwd, options[:output])
 else
-  output_filename = options[:output]
+  if File.directory?(options[:output])
+    output_filename = File.join(options[:output], "bam_stats.txt")
+  else
+    output_filename = options[:output]
+  end
 end
 
 bam_data = {}
