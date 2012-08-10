@@ -192,6 +192,7 @@ FLAG_INDEX = 1
 REF_NAME_INDEX = 2
 POS_INDEX = 3
 SEQ_INDEX = 9
+OPTIONAL_INDEX = 11
 
 NUM_SIG_DIGITS = 4
 
@@ -239,6 +240,7 @@ bam_files.each_with_index do |bam_file, bam_file_index|
   single_mapped_reads = 0
   multi_mapped_reads = 0
   unique_positions = 0
+  tag_warning = false
 
   last_position = ""
   unique_sequences = nil
@@ -271,8 +273,27 @@ bam_files.each_with_index do |bam_file, bam_file_index|
         end
       end
 
-      # find uniquely mapped read
-      warning = false
+      #find uniquely mapped read
+      # if(mapped)
+      #   number_reported_alignments = nil
+      #   data[OPTIONAL_INDEX..-1].each do |optional_field|
+      #     if optional_field[0..1] == "NH"
+      #       number_reported_alignments = optional_field.split(":")[2].to_i
+      #       if number_reported_alignments == 1
+      #         single_mapped_reads += 1
+      #       elsif number_reported_alignments > 1 and !secondary
+      #         multi_mapped_reads += 1
+      #       end
+      #       break
+      #     end
+      #   end
+      #   if !tag_warning and !number_reported_alignments
+      #     puts "WARNING: \\"NH:i\\" tag not found"
+      #     puts "  single_mapped_reads and multi_mapped_reads calculations not correct"
+      #     tag_warning = true
+      #   end
+      # end
+
       if(line =~ /NH:i:(\d+)/)
         number_reported_alignments = $1.to_i
         if number_reported_alignments == 1
@@ -280,10 +301,10 @@ bam_files.each_with_index do |bam_file, bam_file_index|
         elsif number_reported_alignments > 1 and !secondary
           multi_mapped_reads += 1
         end
-      elsif !warning
+      elsif !tag_warning
         puts "WARNING: \"NH:i\" tag not found"
         puts "  single_mapped_reads and multi_mapped_reads calculations not correct"
-        warning = true
+        tag_warning = true
       end
 
       cur_position = "#{data[REF_NAME_INDEX]}_#{data[POS_INDEX]}"
@@ -304,7 +325,7 @@ bam_files.each_with_index do |bam_file, bam_file_index|
   end
 
   bam_instance_data["total_reads_in_bam"] = total
-  bam_instance_data["total_alignments"] += total_aligns
+  bam_instance_data["total_alignments"] = total_aligns
   bam_instance_data["primary_alignments"] = primary_alignments
   bam_instance_data["secondary_alignments"] = secondary_alignments
   bam_instance_data["single_mapped_reads"] = single_mapped_reads
