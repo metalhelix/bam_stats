@@ -9,7 +9,7 @@ require 'optparse'
 # OUTPUT: text file with BAM file stats
 # one line for each BAM file analyzed
 #
-VERSION = '1.3.0'
+VERSION = '1.3.1'
 
 help = <<HELP
 bam_stats provides a number of stats on the reads contained in a bam file. 
@@ -111,10 +111,6 @@ OptionParser.new do |opts|
         exit(1)
       end
     end
-    ind = @datums.index("total_alignable_reads")
-    @datums.insert(ind + 1, "total_reads")
-    @datums.insert(ind + 1, "not_mapped_reads")
-    @datums.insert(ind + 1, "not_mapped_reads_percent")
   end
   opts.on("--unique_sequences", "enable counting unique sequences") do |o|
     require 'set'
@@ -216,6 +212,13 @@ else
   end
   puts "using target data:"
   puts target_data.inspect
+end
+
+if input_data[0][:fastq]
+  ind = @datums.index("total_alignable_reads")
+  @datums.insert(ind + 1, "total_reads")
+  @datums.insert(ind + 1, "not_mapped_reads_percent")
+  @datums.insert(ind + 1, "not_mapped_reads")
 end
 
 puts "Analyzing #{input_data.size} BAM files"
@@ -391,7 +394,10 @@ def bam_stats input_bam, name, bam_file_index, options = {}
 
   if input_bam[:fastq]
     fastq_file = input_bam[:fastq]
-    command = "cat #{fastq_file} | wc -l"
+    reader = File.extname(fastq_file) == ".gz" ? "zcat" : "cat"
+    puts File.extname(fastq_file)
+    command = "#{reader} #{fastq_file} | wc -l"
+    puts command
     result = `#{command}`
     fastq_total = result.to_i / 4
     bam_instance_data["total_reads"] = fastq_total
