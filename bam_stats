@@ -73,6 +73,8 @@ Stats File Fields:
 DD
 
 options = {}
+options[:file] = true
+options[:headers] = true
 options[:samtools] = `which samtools`.chomp
 options[:output] = "bam_stats.txt"
 options[:custom_output] = false
@@ -82,6 +84,12 @@ OptionParser.new do |opts|
 
   opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
     options[:verbose] = v
+  end
+  opts.on("--[no-]file", "Enable/Disable file output") do |v|
+    options[:file] = v
+  end
+  opts.on("--[no-]headers", "Enable/Disable header output") do |v|
+    options[:headers] = v
   end
   opts.on("-s", "--samtools SAMTOOLS_PATH", "Specify samtools path") do |o|
     options[:samtools] = o
@@ -120,6 +128,17 @@ OptionParser.new do |opts|
   end
   opts.on("--table_out", "Output table to command line") do |v|
     options[:table_out] = v
+  end
+  opts.on("--only LIST,OF,ATTRIBUTES", Array, "Only provide output for these attributes") do |o|
+    o.each do |attr|
+      if !@datums.include?(attr)
+        puts "#{attr} is not a valid attribute."
+        puts "valid attributes:"
+        puts "#{@datums.join(", ")}"
+        exit(1)
+      end
+    end
+    options[:only] = o
   end
   opts.on("--version", "Show Version") do |h|
     puts "bam_stats: #{VERSION}"
@@ -221,7 +240,9 @@ if input_data[0][:fastq]
   @datums.insert(ind + 1, "not_mapped_reads")
 end
 
-puts "Analyzing #{input_data.size} BAM files"
+if options[:verbose]
+  puts "Analyzing #{input_data.size} BAM files"
+end
 
 if !options[:custom_output]
   output_filename = File.join(Dir.pwd, options[:output])
@@ -246,7 +267,9 @@ end
 def output_data(bam_data, output_filename, options = {})
   # output to file
   File.open(output_filename, 'w') do |file|
-    file.puts @datums.join("\t")
+    if options[:headers]
+      file.puts @datums.join("\t")
+    end
     bam_data.each do |name, values|
       out = @datums.map {|d| options[:fancy] ? format_number(values[d]) : values[d]}
       file.puts out.join("\t")
@@ -261,13 +284,15 @@ def report_data(bam_data, options = {})
       format_string = @datums.reduce("") {|t,v| t += "%-#{v.length + 2}s "; t}
       format_string += "\n"
       out = @datums.map {|d| values[d]}
-      printf format_string, *@datums
+      if options[:headers]
+        printf format_string, *@datums
+      end
       printf format_string, *out
     end
   else
     bam_data.each do |name, values|
       puts "#{name}: "
-      printed_datums = @datums[1..-1]
+      printed_datums = @datums.select {|n| n != "name"}
       max_length = printed_datums.reduce(0) {|t,v| t = (v.length > t) ? v.length : t; t}
       printed_datums.each do |d|
         printf "    %-#{max_length + 1}s: %s\n", d, format_number(values[d])
@@ -291,9 +316,11 @@ def bam_stats input_bam, name, bam_file_index, options = {}
 
   bam_file = input_bam[:bam]
 
-  puts "Analyzing: #{name}"
-  if input_bam[:fastq]
-    puts " with fastq: #{input_bam[:fastq]}"
+  if options[:verbose]
+    puts "Analyzing: #{name}"
+    if input_bam[:fastq]
+      puts " with fastq: #{input_bam[:fastq]}"
+    end
   end
 
   bam_instance_data = {}
@@ -458,8 +485,16 @@ input_data.each_with_index do |input_bam, bam_file_index|
   end
 end
 
+if options[:only]
+  @datums.keep_if {|n| options[:only].include?(n) or n == "name"}
+  bam_data.each do |sample_name, attributes|
+    attributes.keep_if {|k,v| options[:only].include?(k) or k == "name"}
+  end
+end
 
-output_data(bam_data, output_filename, options)
+if options[:file]
+  output_data(bam_data, output_filename, options)
+end
 
 report_data(bam_data, options)
 
