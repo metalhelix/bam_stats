@@ -245,7 +245,7 @@ if options[:verbose]
 end
 
 if !options[:custom_output]
-  output_filename = File.join(Dir.pwd, options[:output])
+  output_filename = File.join(File.dirname(inputs[0]), options[:output])
 else
   if File.directory?(options[:output])
     output_filename = File.join(options[:output], "bam_stats.txt")
